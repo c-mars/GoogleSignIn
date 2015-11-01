@@ -1,7 +1,13 @@
 package c.mars.googlesignin;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.PackageManager;
+import android.support.annotation.NonNull;
+import android.support.annotation.RequiresPermission;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -14,6 +20,7 @@ import com.google.android.gms.common.Scopes;
 import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Scope;
+import com.google.android.gms.plus.Account;
 import com.google.android.gms.plus.Plus;
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
@@ -112,6 +119,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
     @Override
+    @RequiresPermission(Manifest.permission.GET_ACCOUNTS)
     public void onConnected(Bundle bundle) {
         Log.d(TAG, "onConnected:" + bundle);
         mShouldResolve = false;
@@ -119,10 +127,15 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         // Show the signed-in UI
 //        showSignedInUI();
         String name = Plus.PeopleApi.getCurrentPerson(mGoogleApiClient).getName().getFamilyName();
-        String email = Plus.PeopleApi.getCurrentPerson(mGoogleApiClient).getId();
-//                .getAccountName(mGoogleApiClient);
-                Log.d(TAG, "name: " + name+", email: "+email);
-        mStatus.setText("signed in as "+name);
+        String id = Plus.PeopleApi.getCurrentPerson(mGoogleApiClient).getId();
+        String email = "?";
+        if (checkAccountsPermission()) {
+            email = Plus.AccountApi.getAccountName(mGoogleApiClient);
+        }
+
+        String info = "name: " + name+", id: "+id+", email: "+email;
+        Log.d(TAG, info);
+        mStatus.setText("signed in as "+info);
         mSignOut.setEnabled(true);
     }
 
@@ -147,5 +160,35 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         }
     }
 
+    private boolean checkAccountsPermission() {
+        final String perm = Manifest.permission.GET_ACCOUNTS;
+        int permissionCheck = ContextCompat.checkSelfPermission(this, perm);
+        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+            // We have the permission
+            return true;
+        } else {
+            // No explanation needed, we can request the permission.
+            ActivityCompat.requestPermissions(this,
+                    new String[]{perm},
+                    RC_PERM_GET_ACCOUNTS);
+            return false;
+        }
+    }
+
     private static final int RC_SIGN_IN = 1;
+    private static final int RC_PERM_GET_ACCOUNTS = 2;
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String permissions[],
+                                           @NonNull int[] grantResults) {
+        Log.d(TAG, "onRequestPermissionsResult:" + requestCode);
+        if (requestCode == RC_PERM_GET_ACCOUNTS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                //...
+            } else {
+                Log.d(TAG, "GET_ACCOUNTS Permission Denied.");
+            }
+        }
+    }
 }
